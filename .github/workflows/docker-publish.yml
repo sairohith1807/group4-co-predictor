@@ -37,7 +37,7 @@ jobs:
 
       - name: Smoke test the container
         run: |
-          docker run -d --name t -p 8000:8000 -p 8501:8501 "$IMAGE:test"
+          docker run -d --name smoketest -p 8000:8000 -p 8501:8501 "$IMAGE:test"
           for i in $(seq 1 60); do curl -fs http://127.0.0.1:8000/health && break; sleep 2; done
           echo
           curl -fs -X POST http://127.0.0.1:8000/predict -H "Content-Type: application/json" \
@@ -45,8 +45,8 @@ jobs:
           echo
           for i in $(seq 1 30); do curl -fs http://127.0.0.1:8501/_stcore/health && break; sleep 2; done
           echo
-          docker logs t | tail -20
-          docker rm -f t
+          docker logs smoketest | tail -20
+          docker rm -f smoketest
 
       - name: Publish
         uses: docker/build-push-action@v6
