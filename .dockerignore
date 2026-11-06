@@ -6,3 +6,8 @@ mlflow.db
 artifacts/
 *.tar
 .git/
+share/
+*.bat
+*.txt.bak
+notebook/
+VISITOR_README.txt
