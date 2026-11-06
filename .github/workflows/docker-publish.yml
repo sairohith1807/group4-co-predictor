@@ -1,0 +1,65 @@
+# Builds the Group 4 Docker image on GitHub (free), tests it, and publishes it to ghcr.io
+name: Build and publish Docker image
+
+on:
+  push:
+    branches: [main]
+  workflow_dispatch:
+
+permissions:
+  contents: read
+  packages: write
+
+jobs:
+  docker:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Image name (ghcr.io needs lower-case)
+        run: echo "IMAGE=ghcr.io/${GITHUB_REPOSITORY,,}" >> "$GITHUB_ENV"
+
+      - uses: docker/setup-buildx-action@v3
+
+      - uses: docker/login-action@v3
+        with:
+          registry: ghcr.io
+          username: ${{ github.actor }}
+          password: ${{ secrets.GITHUB_TOKEN }}
+
+      - name: Build (trains + registers the model inside the image)
+        uses: docker/build-push-action@v6
+        with:
+          context: .
+          load: true
+          tags: ${{ env.IMAGE }}:test
+          cache-to: type=gha,mode=max
+
+      - name: Smoke test the container
+        run: |
+          docker run -d --name t -p 8000:8000 -p 8501:8501 "$IMAGE:test"
+          for i in $(seq 1 60); do curl -fs http://127.0.0.1:8000/health && break; sleep 2; done
+          echo
+          curl -fs -X POST http://127.0.0.1:8000/predict -H "Content-Type: application/json" \
+            -d '{"timestamp":"2005-03-01T08:00:00","PT08_S2_NMHC":1046,"PT08_S3_NOx":1056,"PT08_S4_NO2":1692,"PT08_S5_O3":1268,"T":13.6,"RH":48.9,"AH":0.7578}'
+          echo
+          for i in $(seq 1 30); do curl -fs http://127.0.0.1:8501/_stcore/health && break; sleep 2; done
+          echo
+          docker logs t | tail -20
+          docker rm -f t
+
+      - name: Publish
+        uses: docker/build-push-action@v6
+        with:
+          context: .
+          push: true
+          tags: |
+            ${{ env.IMAGE }}:latest
+            ${{ env.IMAGE }}:1.0
+          labels: |
+            org.opencontainers.image.source=https://github.com/${{ github.repository }}
+            org.opencontainers.image.title=Group 4 CO(GT) predictor
+          cache-from: type=gha
+
+      - name: Command for visitors
+        run: echo "docker run -p 8501:8501 -p 8000:8000 -p 5000:5000 $IMAGE:latest"

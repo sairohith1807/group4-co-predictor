@@ -1,0 +1,14 @@
+services:
+  group4-co:
+    image: group4-co-predictor:1.0
+    build:
+      context: .
+      args:
+        FINAL_MODEL: RF
+        FINAL_IMPUTER: knn
+    container_name: group4-co
+    ports:
+      - "8501:8501"   # Streamlit app (visitors start here)
+      - "8000:8000"   # FastAPI  (/docs = Swagger)
+      - "5000:5000"   # MLflow UI
+    restart: unless-stopped
